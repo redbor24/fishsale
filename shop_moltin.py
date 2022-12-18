@@ -128,6 +128,13 @@ def del_product_from_cart(client_id, secret_key, cart_id, cart_item_id):
     response.raise_for_status()
 
 
+def delete_cart(client_id, secret_key, cart_id):
+    access_token = _login(client_id, secret_key)
+    headers = {'Authorization': f'Bearer {access_token}'}
+    response = requests.delete(f'{base_url}/v2/carts/{cart_id}', headers=headers)
+    response.raise_for_status()
+
+
 def save_customer(client_id, secret_key, name, email):
     access_token = _login(client_id, secret_key)
     headers = {'Authorization': f'Bearer {access_token}'}
