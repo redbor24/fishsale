@@ -4,20 +4,18 @@
 python-telegram-bot==13.14
 redis==3.2.1
 """
-import json
 import logging
 
 from environs import Env
 from redis import Redis
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      ReplyKeyboardMarkup)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 from email_validate import validate
 
 from shop_moltin import (get_product_details, get_product_image, get_products,
                          add_product_to_cart, create_cart, get_cart, del_product_from_cart,
-                         find_customer_by_email, save_customer)
+                         find_customer_by_email, save_customer, delete_cart)
 
 _database = None
 _glb_counter = 0
@@ -41,6 +39,8 @@ WAITING_EMAIL = 'WAITING_EMAIL'
 TO_BACK = 'BACK'
 
 weights_kbd_template = [kg_1, kg_3, kg_5, kg_15]
+
+logger = logging.getLogger('tgbot')
 
 
 def get_weights_kbd(product_id, back_button=False, back_state=''):
@@ -240,7 +240,7 @@ def handle_cart(update, context):
 
     elif query.data == PAY_CART:
         query.message.reply_text(
-            text='Для создания заказа напишите email и с вами свяжутся наши менеджеры'
+            text='Для создания заказа напишите email'
         )
         return WAITING_EMAIL
 
@@ -291,23 +291,15 @@ def waiting_email(update, context):
             save_customer(shop_client_id, shop_secret_key, user_email, user_email)
         context.bot.send_message(
             chat_id=chat_id,
-            text=f'Ваш email {user_email} сохранён',
+            text=f'Ваш email {user_email} сохранён. Наши менеджеры свяжутся с вами в ближайшее время.',
             reply_markup=InlineKeyboardMarkup([get_back_kbd(TO_BACK)])
         )
+        db_identifier = f'{chat_id}_cart_id'
+        cart_id = _database.get(db_identifier).decode('utf-8')
+        delete_cart(shop_client_id, shop_secret_key, cart_id)
+        _database.delete(db_identifier)
 
     return START
-
-
-def echo(update, _):
-    """
-    Хэндлер для состояния ECHO.
-
-    Бот отвечает пользователю тем же, что пользователь ему написал.
-    Оставляет пользователя в состоянии ECHO.
-    """
-    users_reply = update.message.text
-    update.message.reply_text(users_reply)
-    return 'ECHO'
 
 
 def handle_users_reply(update, context):
@@ -339,14 +331,13 @@ def handle_users_reply(update, context):
     else:
         return
 
-    if user_reply in ('/start', 'START'):
-        user_state = 'START'
+    if user_reply in ('/start', START):
+        user_state = START
     else:
         user_state = _database.get(chat_id).decode('utf-8')
 
     states_functions = {
         START: start,
-        'ECHO': echo,
         HANDLE_MENU: handle_menu,
         HANDLE_DESCRIPTION: handle_description,
         HANDLE_CART: handle_cart,
@@ -354,14 +345,11 @@ def handle_users_reply(update, context):
     }
     state_handler = states_functions[user_state]
 
-    # Если вы вдруг не заметите, что python-telegram-bot перехватывает ошибки.
-    # Оставляю этот try...except, чтобы код не падал молча.
-    # Этот фрагмент можно переписать.
     try:
         next_state = state_handler(update, context)
         _database.set(chat_id, next_state)
     except Exception as err:
-        print(err)
+        logger.error(err)
 
 
 def get_database_connection():
@@ -378,20 +366,16 @@ def get_database_connection():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(asctime)s %(name)s:%(levelname)s:%(message)s',
+        level=logging.INFO
+    )
+
     env = Env()
     env.read_env()
     tg_token = env('TG_TOKEN')
     shop_client_id = env('SHOP_CLIENT_ID')
     shop_secret_key = env('SHOP_SECRET_KEY')
-
-    # _database = get_database_connection()
-    # # Удаление данных пользователя в редиске
-    # _database.delete('901108747')
-    # _database.delete('901108747_cart_id')
-    #
-    # print(_database.get('901108747'))
-    # print(_database.get('901108747_cart_id'))
-    # exit()
 
     updater = Updater(tg_token)
     dispatcher = updater.dispatcher
