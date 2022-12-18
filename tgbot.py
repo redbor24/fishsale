@@ -4,74 +4,301 @@
 python-telegram-bot==13.14
 redis==3.2.1
 """
+import json
 import logging
 
-from redis import Redis
 from environs import Env
-from telegram import ReplyKeyboardMarkup
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from redis import Redis
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      ReplyKeyboardMarkup)
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
+from email_validate import validate
 
-from shop_moltin import get_products
+from shop_moltin import (get_product_details, get_product_image, get_products,
+                         add_product_to_cart, create_cart, get_cart, del_product_from_cart,
+                         find_customer_by_email, save_customer)
 
 _database = None
-shop_client_id = None
 _glb_counter = 0
+shop_client_id = None
+shop_secret_key = None
 
 kg_1 = '1 кг'
 kg_3 = '3 кг'
 kg_5 = '5 кг'
+kg_15 = '15 кг'
+back_btn_name = 'Назад'
 
-product_keyboard = [
-        [InlineKeyboardButton(kg_1, callback_data=kg_1),
-         InlineKeyboardButton(kg_3, callback_data=kg_3),
-         InlineKeyboardButton(kg_5, callback_data=kg_5)],
-        [InlineKeyboardButton('Назад', callback_data='BACK')]
-    ]
+cart_btn_name = 'Корзина'
+
+START = 'START'
+HANDLE_DESCRIPTION = 'HANDLE_DESCRIPTION'
+HANDLE_MENU = 'HANDLE_MENU'
+HANDLE_CART = 'HANDLE_CART'
+PAY_CART = 'PAY_CART'
+WAITING_EMAIL = 'WAITING_EMAIL'
+TO_BACK = 'BACK'
+
+weights_kbd_template = [kg_1, kg_3, kg_5, kg_15]
+
+
+def get_weights_kbd(product_id, back_button=False, back_state=''):
+    kbd = []
+    weights_part = []
+    for elem in weights_kbd_template:
+        callback_value = f'{product_id}#{elem}'
+        weights_part.append(InlineKeyboardButton(elem, callback_data=callback_value))
+
+    kbd.append(weights_part)
+
+    if back_button:
+        kbd.append([InlineKeyboardButton(back_btn_name, callback_data=back_state)])
+
+    return kbd
+
+
+def get_back_kbd(state):
+    return [InlineKeyboardButton(back_btn_name, callback_data=state)]
+
+
+def get_products_kbd(with_back_button=False):
+    global shop_client_id
+    global shop_secret_key
+
+    keyboard = []
+    for product in get_products(shop_client_id, shop_secret_key):
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"{product['attributes']['name']} ({product['id']})",
+                    callback_data=product['id']
+                )
+            ]
+        )
+
+    # Кнопка для просмотра корзины
+    keyboard.append([InlineKeyboardButton(cart_btn_name, callback_data=HANDLE_CART)])
+
+    if with_back_button:
+        keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=back_btn_state)])
+
+    return keyboard
 
 
 def start(update, _):
-    global shop_client_id
+    if update.message:
+        message = update.message
+    else:
+        message = update.callback_query.message
 
-    products = get_products(shop_client_id)
-    keyboard = []
-    for product in products:
-        name = product['attributes']['name']
-        product_id = product['id']
-        keyboard.append([InlineKeyboardButton(name, callback_data=product_id)])
+    message.reply_text(
+        text='Выберите продукт:',
+        reply_markup=InlineKeyboardMarkup(get_products_kbd()))
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    update.message.reply_text('Выберите:', reply_markup=reply_markup)
-    return 'HANDLE_MENU'
+    return HANDLE_MENU
 
 
 def handle_menu(update, context):
-    query = update.callback_query
-
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-    query.answer()
-
-    query.edit_message_text(
-        text=f"Selected option: {query.data}",
-        reply_markup=InlineKeyboardMarkup(product_keyboard)
-    )
-    return 'HANDLE_DESCRIPTION'
-
-
-def handle_description(update, context):
+    """
+    Из списка продуктов.
+    Показ информации по продукту.
+    """
     query = update.callback_query
     query.answer()
-    query.edit_message_text(
-        text=f"Selected option: {query.data}",
-    )
-    # return 'START'
-    return 'HANDLE_MENU'
+    if query.data == HANDLE_CART:
+        return handle_cart(update, context)
+
+    product_id = query.data
+    if update.message:
+        chat_id = update.message.chat_id
+        message_id = update.message.message_id
+    elif update.callback_query:
+        chat_id = update.callback_query.message.chat_id
+        message_id = update.callback_query.message.message_id
+
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+    product_details = get_product_details(shop_client_id, shop_secret_key, product_id)
+    product_photo_url = get_product_image(shop_client_id, shop_secret_key, product_id)
+
+    caption = f"Было выбрано: {product_id}\n" \
+              f"Название: {product_details['name']}\n" \
+              f"Описание: {product_details['description']}\n" \
+              f"Цена: {product_details['price']} {product_details['currency']} за кг.\n" \
+              f"Доступно для заказа: {product_details['available']} кг.\n"
+    kbd = InlineKeyboardMarkup(get_weights_kbd(product_id, True, START))
+
+    if product_photo_url:
+        context.bot.send_photo(chat_id=chat_id, caption=caption, photo=product_photo_url, reply_markup=kbd)
+    else:
+        context.bot.send_message(chat_id=chat_id, text=caption, reply_markup=kbd)
+
+    return HANDLE_DESCRIPTION
 
 
-def echo(update, context):
+def handle_description(update, _):
+    """
+    Из продукта.
+    Показ детальной информации о продукте.
+    Выбор веса продукта для добавления в корзину.
+    Назад.
+    """
+    global _database
+
+    query = update.callback_query
+    query.answer()
+
+    handled_value = query.data.split('#')
+    product_id = handled_value[0]
+    quantity = int(handled_value[1].replace(' кг', ''))
+
+    if update.message:
+        chat_id = update.message.chat_id
+    elif update.callback_query:
+        chat_id = update.callback_query.message.chat_id
+
+    db_identifier = f'{chat_id}_cart_id'
+
+    db_value = _database.get(db_identifier)
+    cart_id = None
+    if db_value:
+        cart_id = db_value.decode('utf-8')
+
+    if not cart_id:
+        cart_id = create_cart(shop_client_id, shop_secret_key, chat_id)
+        _database.set(db_identifier, cart_id)
+
+    print(f'cart_id: {cart_id}')
+
+    cart = add_product_to_cart(shop_client_id, shop_secret_key, cart_id, product_id, quantity)
+    if cart.get('errors'):
+        err_msg = ''
+        for err in cart['errors']:
+            err_msg += f"{err['title']}; "
+        query.message.reply_text(
+            text=f'Ошибка!\n{err_msg}',
+            reply_markup=InlineKeyboardMarkup([get_back_kbd(product_id)])
+        )
+        return HANDLE_MENU
+    else:
+        query.message.reply_text(
+            text='Товар добавлен в корзину',
+            reply_markup=InlineKeyboardMarkup([get_back_kbd(START)])
+        )
+
+    return HANDLE_DESCRIPTION
+
+
+def handle_cart(update, context):
+    """
+    Из списка продуктов.
+    Просмотр корзины.
+    """
+    global _database
+
+    query = update.callback_query
+
+    if query.data == START:
+        return START
+
+    elif query.data == HANDLE_CART:
+        if update.message:
+            chat_id = update.message.chat_id
+        elif update.callback_query:
+            chat_id = update.callback_query.message.chat_id
+
+        db_value = _database.get(f'{chat_id}_cart_id')
+        cart_buttons = []
+        if db_value:
+            cart_id = db_value.decode('utf-8')
+            cart = get_cart(shop_client_id, shop_secret_key, cart_id)
+            cart_description = ''
+            buttons = []
+
+            for position in cart['products']:
+                cart_description += f"{position['name']}, {position['quantity']} кг, " \
+                                    f"{position['cost']} {position['currency']}\n"
+                buttons.append(
+                    InlineKeyboardButton(
+                        f'Удалить из корзины {position["name"]}',
+                        callback_data=position['cart_item_id'])
+                )
+            cart_description += f'Итого: {cart["summa"]}'
+
+            cart_buttons.append(buttons)
+            cart_buttons.append([InlineKeyboardButton('Оплатить', callback_data=PAY_CART)])
+        else:
+            cart_description = 'Ваша корзина пуста'
+
+        cart_buttons.append(get_back_kbd(START))
+        query.message.reply_text(
+            text=cart_description,
+            reply_markup=InlineKeyboardMarkup(cart_buttons)
+        )
+        return HANDLE_CART
+
+    elif query.data == PAY_CART:
+        query.message.reply_text(
+            text='Для создания заказа напишите email и с вами свяжутся наши менеджеры'
+        )
+        return WAITING_EMAIL
+
+    else:
+        if update.message:
+            chat_id = update.message.chat_id
+        elif update.callback_query:
+            chat_id = update.callback_query.message.chat_id
+
+        db_identifier = f'{chat_id}_cart_id'
+        db_value = _database.get(db_identifier)
+        if db_value:
+            cart_id = db_value.decode('utf-8')
+
+        del_product_from_cart(shop_client_id, shop_secret_key, cart_id, query.data)
+        cart = get_cart(shop_client_id, shop_secret_key, cart_id)
+        if not cart["summa"]:
+            _database.delete(db_identifier)
+
+        update.callback_query.data = HANDLE_CART
+        handle_cart(update, context)
+        return HANDLE_CART
+
+
+def waiting_email(update, context):
+    user_email = update.message.text
+
+    if update.message:
+        chat_id = update.message.chat_id
+    elif update.callback_query:
+        chat_id = update.callback_query.message.chat_id
+
+    if not validate(
+            email_address=user_email,
+            check_format=True,
+            check_dns=False,
+            check_smtp=False,
+            check_blacklist=False
+    ):
+        context.bot.send_message(
+            chat_id=chat_id,
+            text='Введён некорректный email',
+            reply_markup=InlineKeyboardMarkup([get_back_kbd(TO_BACK)])
+        )
+    else:
+        customer = find_customer_by_email(shop_client_id, shop_secret_key, user_email)
+        if not customer:
+            save_customer(shop_client_id, shop_secret_key, user_email, user_email)
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=f'Ваш email {user_email} сохранён',
+            reply_markup=InlineKeyboardMarkup([get_back_kbd(TO_BACK)])
+        )
+
+    return START
+
+
+def echo(update, _):
     """
     Хэндлер для состояния ECHO.
 
@@ -86,6 +313,7 @@ def echo(update, context):
 def handle_users_reply(update, context):
     global _glb_counter
     _glb_counter += 1
+    global _database
     """
     Функция, которая запускается при любом сообщении от пользователя и решает как его обработать.
 
@@ -100,7 +328,7 @@ def handle_users_reply(update, context):
     Если пользователь захочет начать общение с ботом заново, он также может воспользоваться этой командой.
     """
 
-    db = get_database_connection()
+    _database = get_database_connection()
 
     if update.message:
         user_reply = update.message.text
@@ -111,16 +339,18 @@ def handle_users_reply(update, context):
     else:
         return
 
-    if user_reply == '/start':
+    if user_reply in ('/start', 'START'):
         user_state = 'START'
     else:
-        user_state = db.get(chat_id).decode("utf-8")
+        user_state = _database.get(chat_id).decode('utf-8')
 
     states_functions = {
-        'START': start,
+        START: start,
         'ECHO': echo,
-        'HANDLE_MENU': handle_menu,
-        'HANDLE_DESCRIPTION': handle_description
+        HANDLE_MENU: handle_menu,
+        HANDLE_DESCRIPTION: handle_description,
+        HANDLE_CART: handle_cart,
+        WAITING_EMAIL: waiting_email
     }
     state_handler = states_functions[user_state]
 
@@ -129,14 +359,14 @@ def handle_users_reply(update, context):
     # Этот фрагмент можно переписать.
     try:
         next_state = state_handler(update, context)
-        db.set(chat_id, next_state)
+        _database.set(chat_id, next_state)
     except Exception as err:
         print(err)
 
 
 def get_database_connection():
     """
-    Возвращает конекшн с базой данных Redis, либо создаёт новый, если он ещё не создан.
+    Возвращает соединение с базой данных Redis, либо создаёт новое, если оно ещё не создано.
     """
     global _database
     if _database is None:
@@ -152,6 +382,16 @@ if __name__ == '__main__':
     env.read_env()
     tg_token = env('TG_TOKEN')
     shop_client_id = env('SHOP_CLIENT_ID')
+    shop_secret_key = env('SHOP_SECRET_KEY')
+
+    # _database = get_database_connection()
+    # # Удаление данных пользователя в редиске
+    # _database.delete('901108747')
+    # _database.delete('901108747_cart_id')
+    #
+    # print(_database.get('901108747'))
+    # print(_database.get('901108747_cart_id'))
+    # exit()
 
     updater = Updater(tg_token)
     dispatcher = updater.dispatcher
