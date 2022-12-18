@@ -1,21 +1,16 @@
-"""
-Работает с этими модулями:
-
-python-telegram-bot==13.14
-redis==3.2.1
-"""
 import logging
 
+from email_validate import validate
 from environs import Env
 from redis import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
-from email_validate import validate
 
-from shop_moltin import (get_product_details, get_product_image, get_products,
-                         add_product_to_cart, create_cart, get_cart, del_product_from_cart,
-                         find_customer_by_email, save_customer, delete_cart)
+from shop_moltin import (add_product_to_cart, create_cart,
+                         del_product_from_cart, delete_cart,
+                         find_customer_by_email, get_cart, get_product_details,
+                         get_product_image, get_products, save_customer)
 
 _database = None
 _glb_counter = 0
@@ -81,7 +76,7 @@ def get_products_kbd(with_back_button=False):
     keyboard.append([InlineKeyboardButton(cart_btn_name, callback_data=HANDLE_CART)])
 
     if with_back_button:
-        keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=back_btn_state)])
+        keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=TO_BACK)])
 
     return keyboard
 

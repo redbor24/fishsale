@@ -1,6 +1,4 @@
 import requests
-from environs import Env
-from pprint import pprint
 
 base_url = 'https://api.moltin.com'
 
@@ -38,7 +36,7 @@ def get_product_details(client_id, secret_key, product_id):
         'id': product['id'],
         'name': product['attributes']['name'],
         'description': product['attributes']['description'],
-        'price': product['meta']['display_price']['without_tax']['amount']/100,
+        'price': product['meta']['display_price']['without_tax']['amount'] / 100,
         'currency': product['meta']['display_price']['without_tax']['currency'],
         'sku': product['attributes']['sku'],
         'available': inventory['data']['available'],
