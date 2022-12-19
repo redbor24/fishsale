@@ -48,15 +48,16 @@ def get_product_details(client_id, secret_key, product_id):
 def get_product_image(client_id, secret_key, product_id):
     access_token = _login(client_id, secret_key)
     headers = {'Authorization': f'Bearer {access_token}'}
-    response = requests.get(f'{base_url}/pcm/products/{product_id}/relationships/main_image', headers=headers)
-    response.raise_for_status()
-
-    parsed = response.json()
-    if not parsed['data']:
+    response = requests.get(f'{base_url}/pcm/products/{product_id}/relationships/main_images', headers=headers)
+    if not response.ok:
         return
 
-    file_id = response.json()['data']['id']
-    response = requests.get(f'{base_url}/v2/files/{file_id}', headers=headers)
+    image = response.json()
+    if not image['data']:
+        return
+
+    response = requests.get(f'{base_url}/v2/files/{image["data"]["id"]}', headers=headers)
+    response.raise_for_status()
     return response.json()['data']['link']['href']
 
 
