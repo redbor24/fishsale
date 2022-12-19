@@ -1,3 +1,4 @@
+from datetime import datetime
 import requests
 
 base_url = 'https://api.moltin.com'
@@ -7,6 +8,8 @@ class MoltinShop:
     def __init__(self, client_id, secret_key):
         self.client_id = client_id
         self.secret_key = secret_key
+        self.access_token = ''
+        self.token_expires = 0
 
     def _login(self):
         data = {
@@ -15,11 +18,18 @@ class MoltinShop:
             'client_secret': self.secret_key,
         }
         response = requests.post(f'{base_url}/oauth/access_token', data=data)
-        print(response.json())
-        return response.json()['access_token']
+        token = response.json()
+        access_token = token['access_token']
+        self.token_expires = token['expires']
+        return access_token
+
+    def get_token(self):
+        if self.token_expires - int(datetime.now().timestamp()) <= 0:
+            self.access_token = self._login()
+        return self.access_token
 
     def get_products(self):
-        access_token = self._login()
+        access_token = self.get_token()
         prod_link = f'{base_url}/pcm/catalog/products'
         auth_header = {'Authorization': f'Bearer {access_token}'}
         response = requests.get(prod_link, headers=auth_header)
@@ -27,7 +37,7 @@ class MoltinShop:
         return response.json()['data']
 
     def get_product_details(self, product_id):
-        access_token = self._login()
+        access_token = self.get_token()
         prod_link = f'{base_url}/pcm/catalog/products/{product_id}'
         auth_header = {'Authorization': f'Bearer {access_token}'}
         product_resp = requests.get(prod_link, headers=auth_header)
@@ -49,7 +59,7 @@ class MoltinShop:
         }
 
     def get_product_image(self, product_id):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
         response = requests.get(f'{base_url}/pcm/products/{product_id}/relationships/main_image', headers=headers)
         if not response.ok:
@@ -64,7 +74,7 @@ class MoltinShop:
         return response.json()['data']['link']['href']
 
     def get_cart(self, cart_id):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
         response = requests.get(f'{base_url}/v2/carts/{cart_id}/items', headers=headers)
@@ -92,7 +102,7 @@ class MoltinShop:
         return cart
 
     def create_cart(self, user_id):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
         json_data = {
@@ -109,7 +119,7 @@ class MoltinShop:
         return response.json()['data']['id']
 
     def add_product_to_cart(self, cart_id, product_id, quantity):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
         product = {
@@ -123,19 +133,19 @@ class MoltinShop:
         return response.json()
 
     def del_product_from_cart(self, cart_id, cart_item_id):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
         response = requests.delete(f'{base_url}/v2/carts/{cart_id}/items/{cart_item_id}', headers=headers)
         response.raise_for_status()
 
     def delete_cart(self, cart_id):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
         response = requests.delete(f'{base_url}/v2/carts/{cart_id}', headers=headers)
         response.raise_for_status()
 
     def find_customer_by_email(self, email):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
         response = requests.get(f'{base_url}/v2/customers?filter=eq(email, {email})', headers=headers)
@@ -143,7 +153,7 @@ class MoltinShop:
         return response.json()['data']
 
     def save_customer(self, name, email):
-        access_token = self._login()
+        access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
         customer = {

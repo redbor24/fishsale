@@ -8,10 +8,6 @@ from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 
 from shop_moltin import MoltinShop
-# from shop_moltin import (add_product_to_cart, create_cart,
-#                          del_product_from_cart, delete_cart,
-#                          find_customer_by_email, get_cart, get_product_details,
-#                          get_product_image, get_products, save_customer)
 
 _database = None
 shop_client_id = None
