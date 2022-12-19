@@ -155,8 +155,6 @@ def handle_description(update, _):
         cart_id = create_cart(shop_client_id, shop_secret_key, chat_id)
         _database.set(db_identifier, cart_id)
 
-    print(f'cart_id: {cart_id}')
-
     cart = add_product_to_cart(shop_client_id, shop_secret_key, cart_id, product_id, quantity)
     if cart.get('errors'):
         err_msg = ''
