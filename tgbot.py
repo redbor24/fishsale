@@ -40,7 +40,7 @@ logger = logging.getLogger('tgbot')
 def get_weights_kbd(product_id, back_button=False, back_state=''):
     weights_part = []
     for elem in weights_keyboard_template:
-        callback_value = f'{product_id}#{elem}'
+        callback_value = f'{product_id}#{elem.replace(" кг", "")}'
         weights_part.append(InlineKeyboardButton(elem, callback_data=callback_value))
 
     weights_keyboard = [weights_part]
@@ -137,9 +137,7 @@ def handle_description(update, _):
     query = update.callback_query
     query.answer()
 
-    handled_value = query.data.split('#')
-    product_id = handled_value[0]
-    quantity = int(handled_value[1].replace(' кг', ''))
+    product_id, quantity = query.data.split('#')
 
     if update.message:
         chat_id = update.message.chat_id

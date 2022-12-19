@@ -112,14 +112,14 @@ def add_product_to_cart(client_id, secret_key, cart_id, product_id, quantity):
     access_token = _login(client_id, secret_key)
     headers = {'Authorization': f'Bearer {access_token}'}
 
-    json_data = {
+    product = {
         'data': {
-            'id': product_id,
             'type': 'cart_item',
-            'quantity': quantity,
+            'id': product_id,
+            'quantity': int(quantity),
         },
     }
-    response = requests.post(f'{base_url}/v2/carts/{cart_id}/items', headers=headers, json=json_data)
+    response = requests.post(f'{base_url}/v2/carts/{cart_id}/items', headers=headers, json=product)
     response.raise_for_status()
     return response.json()
 
