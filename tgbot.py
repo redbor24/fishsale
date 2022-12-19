@@ -32,23 +32,23 @@ PAY_CART = 'PAY_CART'
 WAITING_EMAIL = 'WAITING_EMAIL'
 TO_BACK = 'BACK'
 
-weights_kbd_template = [kg_1, kg_3, kg_5, kg_15]
+weights_keyboard_template = [kg_1, kg_3, kg_5, kg_15]
 
 logger = logging.getLogger('tgbot')
 
 
 def get_weights_kbd(product_id, back_button=False, back_state=''):
     weights_part = []
-    for elem in weights_kbd_template:
+    for elem in weights_keyboard_template:
         callback_value = f'{product_id}#{elem}'
         weights_part.append(InlineKeyboardButton(elem, callback_data=callback_value))
 
-    keyboard = [weights_part]
+    weights_keyboard = [weights_part]
 
     if back_button:
-        keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=back_state)])
+        weights_keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=back_state)])
 
-    return keyboard
+    return weights_keyboard
 
 
 def get_back_kbd(state):
