@@ -10,8 +10,6 @@ from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
 from shop_moltin import MoltinShop
 
 _database = None
-shop_client_id = None
-shop_secret_key = None
 
 KG_1 = '1 кг'
 KG_3 = '3 кг'
