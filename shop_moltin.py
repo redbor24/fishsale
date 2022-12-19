@@ -142,14 +142,14 @@ def save_customer(client_id, secret_key, name, email):
     access_token = _login(client_id, secret_key)
     headers = {'Authorization': f'Bearer {access_token}'}
 
-    json_data = {
+    customer = {
         'data': {
             'type': 'customer',
             'name': name,
             'email': email
         },
     }
-    response = requests.post(f'{base_url}/v2/customers', headers=headers, json=json_data)
+    response = requests.post(f'{base_url}/v2/customers', headers=headers, json=customer)
     response.raise_for_status()
 
 
