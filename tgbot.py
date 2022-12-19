@@ -16,13 +16,13 @@ _database = None
 shop_client_id = None
 shop_secret_key = None
 
-kg_1 = '1 кг'
-kg_3 = '3 кг'
-kg_5 = '5 кг'
-kg_15 = '15 кг'
-back_btn_name = 'Назад'
+KG_1 = '1 кг'
+KG_3 = '3 кг'
+KG_5 = '5 кг'
+KG_15 = '15 кг'
+BACK_BTN_NAME = 'Назад'
 
-cart_btn_name = 'Корзина'
+CART_BTN_NAME = 'Корзина'
 
 START = 'START'
 HANDLE_DESCRIPTION = 'HANDLE_DESCRIPTION'
@@ -32,7 +32,7 @@ PAY_CART = 'PAY_CART'
 WAITING_EMAIL = 'WAITING_EMAIL'
 TO_BACK = 'BACK'
 
-weights_keyboard_template = [kg_1, kg_3, kg_5, kg_15]
+weights_keyboard_template = [KG_1, KG_3, KG_5, KG_15]
 
 logger = logging.getLogger('tgbot')
 
@@ -46,13 +46,13 @@ def get_weights_kbd(product_id, back_button=False, back_state=''):
     weights_keyboard = [weights_part]
 
     if back_button:
-        weights_keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=back_state)])
+        weights_keyboard.append([InlineKeyboardButton(BACK_BTN_NAME, callback_data=back_state)])
 
     return weights_keyboard
 
 
 def get_back_kbd(state):
-    return [InlineKeyboardButton(back_btn_name, callback_data=state)]
+    return [InlineKeyboardButton(BACK_BTN_NAME, callback_data=state)]
 
 
 def get_products_kbd(with_back_button=False):
@@ -68,10 +68,10 @@ def get_products_kbd(with_back_button=False):
         )
 
     # Кнопка для просмотра корзины
-    keyboard.append([InlineKeyboardButton(cart_btn_name, callback_data=HANDLE_CART)])
+    keyboard.append([InlineKeyboardButton(CART_BTN_NAME, callback_data=HANDLE_CART)])
 
     if with_back_button:
-        keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=TO_BACK)])
+        keyboard.append([InlineKeyboardButton(BACK_BTN_NAME, callback_data=TO_BACK)])
 
     return keyboard
 
