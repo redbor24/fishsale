@@ -345,6 +345,12 @@ def handle_users_reply(update, context):
         _database.set(chat_id, next_state)
     except Exception as err:
         logger.error(err)
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=f'Произошла ошибка при выполнении действия. Действие не выполнено. Обратитесь к разработчику.'
+        )
+        start(update, context)
+        _database.set(chat_id, HANDLE_MENU)
 
 
 def get_database_connection():

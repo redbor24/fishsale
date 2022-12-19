@@ -18,6 +18,7 @@ def get_products(client_id, secret_key):
     prod_link = f'{base_url}/pcm/catalog/products'
     auth_header = {'Authorization': f'Bearer {access_token}'}
     response = requests.get(prod_link, headers=auth_header)
+    response.raise_for_status()
     return response.json()['data']
 
 
@@ -26,6 +27,7 @@ def get_product_details(client_id, secret_key, product_id):
     prod_link = f'{base_url}/pcm/catalog/products/{product_id}'
     auth_header = {'Authorization': f'Bearer {access_token}'}
     product_resp = requests.get(prod_link, headers=auth_header)
+    product_resp.raise_for_status()
     product = product_resp.json()['data']
 
     inventory_link = f'{base_url}/v2/inventories/{product_id}'
@@ -47,6 +49,7 @@ def get_product_image(client_id, secret_key, product_id):
     access_token = _login(client_id, secret_key)
     headers = {'Authorization': f'Bearer {access_token}'}
     response = requests.get(f'{base_url}/pcm/products/{product_id}/relationships/main_image', headers=headers)
+    response.raise_for_status()
 
     parsed = response.json()
     if not parsed['data']:
@@ -116,6 +119,7 @@ def add_product_to_cart(client_id, secret_key, cart_id, product_id, quantity):
         },
     }
     response = requests.post(f'{base_url}/v2/carts/{cart_id}/items', headers=headers, json=json_data)
+    response.raise_for_status()
     return response.json()
 
 
