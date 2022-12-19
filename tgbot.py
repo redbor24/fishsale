@@ -13,7 +13,6 @@ from shop_moltin import (add_product_to_cart, create_cart,
                          get_product_image, get_products, save_customer)
 
 _database = None
-_glb_counter = 0
 shop_client_id = None
 shop_secret_key = None
 
@@ -58,9 +57,6 @@ def get_back_kbd(state):
 
 
 def get_products_kbd(with_back_button=False):
-    global shop_client_id
-    global shop_secret_key
-
     keyboard = []
     for product in get_products(shop_client_id, shop_secret_key):
         keyboard.append(
@@ -139,8 +135,6 @@ def handle_description(update, _):
     Выбор веса продукта для добавления в корзину.
     Назад.
     """
-    global _database
-
     query = update.callback_query
     query.answer()
 
@@ -298,8 +292,6 @@ def waiting_email(update, context):
 
 
 def handle_users_reply(update, context):
-    global _glb_counter
-    _glb_counter += 1
     global _database
     """
     Функция, которая запускается при любом сообщении от пользователя и решает как его обработать.
