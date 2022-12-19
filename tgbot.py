@@ -98,8 +98,6 @@ def handle_menu(update, context):
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
 
-    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-
     product_details = get_product_details(shop_client_id, shop_secret_key, product_id)
     product_photo_url = get_product_image(shop_client_id, shop_secret_key, product_id)
 
@@ -114,6 +112,8 @@ def handle_menu(update, context):
         context.bot.send_photo(chat_id=chat_id, caption=caption, photo=product_photo_url, reply_markup=kbd)
     else:
         context.bot.send_message(chat_id=chat_id, text=caption, reply_markup=kbd)
+
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
     return HANDLE_DESCRIPTION
 
