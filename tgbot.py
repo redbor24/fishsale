@@ -77,12 +77,7 @@ def get_products_kbd(with_back_button=False):
 
 
 def start(update, _):
-    if update.message:
-        message = update.message
-    else:
-        message = update.callback_query.message
-
-    message.reply_text(
+    update.effective_message.reply_text(
         text='Выберите продукт:',
         reply_markup=InlineKeyboardMarkup(get_products_kbd()))
 
@@ -100,12 +95,8 @@ def handle_menu(update, context):
         return handle_cart(update, context)
 
     product_id = query.data
-    if update.message:
-        chat_id = update.message.chat_id
-        message_id = update.message.message_id
-    elif update.callback_query:
-        chat_id = update.callback_query.message.chat_id
-        message_id = update.callback_query.message.message_id
+    message_id = update.effective_message.message_id
+    chat_id = update.effective_message.chat_id
 
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
@@ -138,12 +129,7 @@ def handle_description(update, _):
     query.answer()
 
     product_id, quantity = query.data.split('#')
-
-    if update.message:
-        chat_id = update.message.chat_id
-    elif update.callback_query:
-        chat_id = update.callback_query.message.chat_id
-
+    chat_id = update.effective_message.chat_id
     db_identifier = f'{chat_id}_cart_id'
 
     db_value = _database.get(db_identifier)
@@ -187,10 +173,7 @@ def handle_cart(update, context):
         return START
 
     elif query.data == HANDLE_CART:
-        if update.message:
-            chat_id = update.message.chat_id
-        elif update.callback_query:
-            chat_id = update.callback_query.message.chat_id
+        chat_id = update.effective_message.chat_id
 
         db_value = _database.get(f'{chat_id}_cart_id')
         cart_buttons = []
@@ -229,10 +212,7 @@ def handle_cart(update, context):
         return WAITING_EMAIL
 
     else:
-        if update.message:
-            chat_id = update.message.chat_id
-        elif update.callback_query:
-            chat_id = update.callback_query.message.chat_id
+        chat_id = update.effective_message.chat_id
 
         db_identifier = f'{chat_id}_cart_id'
         db_value = _database.get(db_identifier)
@@ -251,11 +231,7 @@ def handle_cart(update, context):
 
 def waiting_email(update, context):
     user_email = update.message.text
-
-    if update.message:
-        chat_id = update.message.chat_id
-    elif update.callback_query:
-        chat_id = update.callback_query.message.chat_id
+    chat_id = update.effective_message.chat_id
 
     if not validate(
             email_address=user_email,
