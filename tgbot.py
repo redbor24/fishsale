@@ -38,18 +38,17 @@ logger = logging.getLogger('tgbot')
 
 
 def get_weights_kbd(product_id, back_button=False, back_state=''):
-    kbd = []
     weights_part = []
     for elem in weights_kbd_template:
         callback_value = f'{product_id}#{elem}'
         weights_part.append(InlineKeyboardButton(elem, callback_data=callback_value))
 
-    kbd.append(weights_part)
+    keyboard = [weights_part]
 
     if back_button:
-        kbd.append([InlineKeyboardButton(back_btn_name, callback_data=back_state)])
+        keyboard.append([InlineKeyboardButton(back_btn_name, callback_data=back_state)])
 
-    return kbd
+    return keyboard
 
 
 def get_back_kbd(state):
