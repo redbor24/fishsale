@@ -48,7 +48,7 @@ def get_product_details(client_id, secret_key, product_id):
 def get_product_image(client_id, secret_key, product_id):
     access_token = _login(client_id, secret_key)
     headers = {'Authorization': f'Bearer {access_token}'}
-    response = requests.get(f'{base_url}/pcm/products/{product_id}/relationships/main_images', headers=headers)
+    response = requests.get(f'{base_url}/pcm/products/{product_id}/relationships/main_image', headers=headers)
     if not response.ok:
         return
 
