@@ -7,10 +7,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 
-from shop_moltin import (add_product_to_cart, create_cart,
-                         del_product_from_cart, delete_cart,
-                         find_customer_by_email, get_cart, get_product_details,
-                         get_product_image, get_products, save_customer)
+from shop_moltin import MoltinShop
+# from shop_moltin import (add_product_to_cart, create_cart,
+#                          del_product_from_cart, delete_cart,
+#                          find_customer_by_email, get_cart, get_product_details,
+#                          get_product_image, get_products, save_customer)
 
 _database = None
 shop_client_id = None
@@ -57,7 +58,7 @@ def get_back_kbd(state):
 
 def get_products_kbd(with_back_button=False):
     keyboard = []
-    for product in get_products(shop_client_id, shop_secret_key):
+    for product in moltin_shop.get_products():
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -98,8 +99,8 @@ def handle_menu(update, context):
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
 
-    product_details = get_product_details(shop_client_id, shop_secret_key, product_id)
-    product_photo_url = get_product_image(shop_client_id, shop_secret_key, product_id)
+    product_details = moltin_shop.get_product_details(product_id)
+    product_photo_url = moltin_shop.get_product_image(product_id)
 
     caption = f"Было выбрано: {product_id}\n" \
               f"Название: {product_details['name']}\n" \
@@ -138,10 +139,10 @@ def handle_description(update, _):
         cart_id = db_value.decode('utf-8')
 
     if not cart_id:
-        cart_id = create_cart(shop_client_id, shop_secret_key, chat_id)
+        cart_id = moltin_shop.create_cart(chat_id)
         _database.set(db_identifier, cart_id)
 
-    cart = add_product_to_cart(shop_client_id, shop_secret_key, cart_id, product_id, quantity)
+    cart = moltin_shop.add_product_to_cart(cart_id, product_id, quantity)
     if cart.get('errors'):
         err_msg = ''
         for err in cart['errors']:
@@ -179,7 +180,7 @@ def handle_cart(update, context):
         cart_buttons = []
         if db_value:
             cart_id = db_value.decode('utf-8')
-            cart = get_cart(shop_client_id, shop_secret_key, cart_id)
+            cart = moltin_shop.get_cart(cart_id)
             cart_description = ''
             buttons = []
 
@@ -219,8 +220,8 @@ def handle_cart(update, context):
         if db_value:
             cart_id = db_value.decode('utf-8')
 
-        del_product_from_cart(shop_client_id, shop_secret_key, cart_id, query.data)
-        cart = get_cart(shop_client_id, shop_secret_key, cart_id)
+        moltin_shop.del_product_from_cart(cart_id, query.data)
+        cart = moltin_shop.get_cart(cart_id)
         if not cart["summa"]:
             _database.delete(db_identifier)
 
@@ -246,9 +247,9 @@ def waiting_email(update, context):
             reply_markup=InlineKeyboardMarkup([get_back_kbd(TO_BACK)])
         )
     else:
-        customer = find_customer_by_email(shop_client_id, shop_secret_key, user_email)
+        customer = moltin_shop.find_customer_by_email(user_email)
         if not customer:
-            save_customer(shop_client_id, shop_secret_key, user_email, user_email)
+            moltin_shop.save_customer(user_email, user_email)
         context.bot.send_message(
             chat_id=chat_id,
             text=f'Ваш email {user_email} сохранён. Наши менеджеры свяжутся с вами в ближайшее время.',
@@ -256,7 +257,7 @@ def waiting_email(update, context):
         )
         db_identifier = f'{chat_id}_cart_id'
         cart_id = _database.get(db_identifier).decode('utf-8')
-        delete_cart(shop_client_id, shop_secret_key, cart_id)
+        moltin_shop.delete_cart(cart_id)
         _database.delete(db_identifier)
 
     return START
@@ -340,6 +341,8 @@ if __name__ == '__main__':
     tg_token = env('TG_TOKEN')
     shop_client_id = env('SHOP_CLIENT_ID')
     shop_secret_key = env('SHOP_SECRET_KEY')
+
+    moltin_shop = MoltinShop(shop_client_id, shop_secret_key)
 
     updater = Updater(tg_token)
     dispatcher = updater.dispatcher
