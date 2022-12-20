@@ -62,7 +62,6 @@ def get_products_kbd(with_back_button=False):
             ]
         )
 
-    # Кнопка для просмотра корзины
     keyboard.append([InlineKeyboardButton(CART_BTN_NAME, callback_data=HANDLE_CART)])
 
     if with_back_button:
@@ -160,8 +159,6 @@ def handle_cart(update, context):
     Из списка продуктов.
     Просмотр корзины.
     """
-    global _database
-
     query = update.callback_query
 
     if query.data == START:
@@ -258,7 +255,6 @@ def waiting_email(update, context):
 
 
 def handle_users_reply(update, context):
-    global _database
     """
     Функция, которая запускается при любом сообщении от пользователя и решает как его обработать.
 
