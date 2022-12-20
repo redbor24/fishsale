@@ -105,7 +105,7 @@ class MoltinShop:
         access_token = self.get_token()
         headers = {'Authorization': f'Bearer {access_token}'}
 
-        json_data = {
+        cart = {
             'data': {
                 'type': 'flow',
                 'name': f'user cart {user_id}',
@@ -114,7 +114,7 @@ class MoltinShop:
                 'enabled': True,
             },
         }
-        response = requests.post(f'{base_url}/v2/carts/', headers=headers, json=json_data)
+        response = requests.post(f'{base_url}/v2/carts/', headers=headers, json=cart)
         response.raise_for_status()
         return response.json()['data']['id']
 
