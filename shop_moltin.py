@@ -130,7 +130,18 @@ class MoltinShop:
             },
         }
         response = requests.post(f'{base_url}/v2/carts/{cart_id}/items', headers=headers, json=product)
-        return response.json()
+        if response.ok:
+            return {
+                'result': True,
+            }
+        else:
+            err_description = ''
+            for message in response.json()['errors']:
+                err_description += f"{message['detail']}\n"
+            return {
+                'result': False,
+                'message': err_description
+            }
 
     def del_product_from_cart(self, cart_id, cart_item_id):
         access_token = self.get_token()

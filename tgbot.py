@@ -136,22 +136,18 @@ def handle_description(update, _):
         _database.set(db_identifier, cart_id)
 
     cart = moltin_shop.add_product_to_cart(cart_id, product_id, quantity)
-    if cart.get('errors'):
-        err_msg = ''
-        for err in cart['errors']:
-            err_msg += f"{err['title']}; "
-        query.message.reply_text(
-            text=f'Ошибка!\n{err_msg}',
-            reply_markup=InlineKeyboardMarkup([get_back_kbd(product_id)])
-        )
-        return HANDLE_MENU
-    else:
+    if cart['result']:
         query.message.reply_text(
             text='Товар добавлен в корзину',
             reply_markup=InlineKeyboardMarkup([get_back_kbd(START)])
         )
-
-    return HANDLE_DESCRIPTION
+        return HANDLE_DESCRIPTION
+    else:
+        query.message.reply_text(
+            text=f"Ошибка!\n{cart['message']}",
+            reply_markup=InlineKeyboardMarkup([get_back_kbd(product_id)])
+        )
+        return HANDLE_MENU
 
 
 def handle_cart(update, context):
