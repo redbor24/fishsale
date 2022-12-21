@@ -309,6 +309,17 @@ def handle_users_reply(update, context, shop=None):
 
 
 def main():
+    logging.basicConfig(
+        format='%(asctime)s %(name)s:%(levelname)s:%(message)s',
+        level=logging.INFO
+    )
+
+    env = Env()
+    env.read_env()
+    tg_token = env('TG_TOKEN')
+    shop_client_id = env('SHOP_CLIENT_ID')
+    shop_secret_key = env('SHOP_SECRET_KEY')
+
     moltin_shop = MoltinShop(shop_client_id, shop_secret_key)
 
     main_handler = partial(handle_users_reply, shop=moltin_shop)
@@ -322,15 +333,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        format='%(asctime)s %(name)s:%(levelname)s:%(message)s',
-        level=logging.INFO
-    )
-
-    env = Env()
-    env.read_env()
-    tg_token = env('TG_TOKEN')
-    shop_client_id = env('SHOP_CLIENT_ID')
-    shop_secret_key = env('SHOP_SECRET_KEY')
-
     main()
