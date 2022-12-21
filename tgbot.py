@@ -97,8 +97,7 @@ def handle_menu(update, context, shop):
     product_details = shop.get_product_details(product_id)
     product_photo_url = shop.get_product_image(product_id)
 
-    caption = f"Было выбрано: {product_id}\n" \
-              f"Название: {product_details['name']}\n" \
+    caption = f"Название: {product_details['name']}\n" \
               f"Описание: {product_details['description']}\n" \
               f"Цена: {product_details['price']} {product_details['currency']} за кг.\n" \
               f"Доступно для заказа: {product_details['available']} кг.\n"
@@ -267,7 +266,11 @@ def handle_users_reply(update, context, shop=None):
     Если пользователь захочет начать общение с ботом заново, он также может воспользоваться этой командой.
     """
     global _database
-    _database = get_database_connection()
+    if _database is None:
+        redis_host = env('REDIS_HOST')
+        redis_port = env('REDIS_PORT')
+        redis_password = env('REDIS_PASSWORD')
+        _database = Redis(host=redis_host, port=redis_port, password=redis_password)
 
     if update.message:
         user_reply = update.message.text
@@ -303,19 +306,6 @@ def handle_users_reply(update, context, shop=None):
         )
         start(update, context, shop)
         _database.set(chat_id, HANDLE_MENU)
-
-
-def get_database_connection():
-    """
-    Возвращает соединение с базой данных Redis, либо создаёт новое, если оно ещё не создано.
-    """
-    global _database
-    if _database is None:
-        redis_host = env('REDIS_HOST')
-        redis_port = env('REDIS_PORT')
-        redis_password = env('REDIS_PASSWORD')
-        _database = Redis(host=redis_host, port=redis_port, password=redis_password)
-    return _database
 
 
 def main():
