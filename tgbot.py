@@ -7,6 +7,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 
+from functools import partial
+
 from shop_moltin import MoltinShop
 
 _database = None
@@ -50,9 +52,9 @@ def get_back_kbd(state):
     return [InlineKeyboardButton(BACK_BTN_NAME, callback_data=state)]
 
 
-def get_products_kbd(with_back_button=False):
+def get_products_kbd(shop, with_back_button=False):
     keyboard = []
-    for product in moltin_shop.get_products():
+    for product in shop.get_products():
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -70,15 +72,15 @@ def get_products_kbd(with_back_button=False):
     return keyboard
 
 
-def start(update, _):
+def start(update, _, shop):
     update.effective_message.reply_text(
         text='Выберите продукт:',
-        reply_markup=InlineKeyboardMarkup(get_products_kbd()))
+        reply_markup=InlineKeyboardMarkup(get_products_kbd(shop)))
 
     return HANDLE_MENU
 
 
-def handle_menu(update, context):
+def handle_menu(update, context, shop):
     """
     Из списка продуктов.
     Показ информации по продукту.
@@ -86,14 +88,14 @@ def handle_menu(update, context):
     query = update.callback_query
     query.answer()
     if query.data == HANDLE_CART:
-        return handle_cart(update, context)
+        return handle_cart(update, context, shop)
 
     product_id = query.data
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
 
-    product_details = moltin_shop.get_product_details(product_id)
-    product_photo_url = moltin_shop.get_product_image(product_id)
+    product_details = shop.get_product_details(product_id)
+    product_photo_url = shop.get_product_image(product_id)
 
     caption = f"Было выбрано: {product_id}\n" \
               f"Название: {product_details['name']}\n" \
@@ -112,7 +114,7 @@ def handle_menu(update, context):
     return HANDLE_DESCRIPTION
 
 
-def handle_description(update, _):
+def handle_description(update, _, shop):
     """
     Из продукта.
     Показ детальной информации о продукте.
@@ -132,10 +134,10 @@ def handle_description(update, _):
         cart_id = db_value.decode('utf-8')
 
     if not cart_id:
-        cart_id = moltin_shop.create_cart(chat_id)
+        cart_id = shop.create_cart(chat_id)
         _database.set(db_identifier, cart_id)
 
-    cart = moltin_shop.add_product_to_cart(cart_id, product_id, quantity)
+    cart = shop.add_product_to_cart(cart_id, product_id, quantity)
     if cart['result']:
         query.message.reply_text(
             text='Товар добавлен в корзину',
@@ -150,7 +152,7 @@ def handle_description(update, _):
         return HANDLE_MENU
 
 
-def handle_cart(update, context):
+def handle_cart(update, context, shop):
     """
     Из списка продуктов.
     Просмотр корзины.
@@ -167,7 +169,7 @@ def handle_cart(update, context):
         cart_buttons = []
         if db_value:
             cart_id = db_value.decode('utf-8')
-            cart = moltin_shop.get_cart(cart_id)
+            cart = shop.get_cart(cart_id)
             cart_description = ''
             buttons = []
 
@@ -207,17 +209,17 @@ def handle_cart(update, context):
         if db_value:
             cart_id = db_value.decode('utf-8')
 
-        moltin_shop.del_product_from_cart(cart_id, query.data)
-        cart = moltin_shop.get_cart(cart_id)
+        shop.del_product_from_cart(cart_id, query.data)
+        cart = shop.get_cart(cart_id)
         if not cart["summa"]:
             _database.delete(db_identifier)
 
         update.callback_query.data = HANDLE_CART
-        handle_cart(update, context)
+        handle_cart(update, context, shop)
         return HANDLE_CART
 
 
-def waiting_email(update, context):
+def waiting_email(update, context, shop):
     user_email = update.message.text
     chat_id = update.effective_message.chat_id
 
@@ -234,9 +236,9 @@ def waiting_email(update, context):
             reply_markup=InlineKeyboardMarkup([get_back_kbd(TO_BACK)])
         )
     else:
-        customer = moltin_shop.find_customer_by_email(user_email)
+        customer = shop.find_customer_by_email(user_email)
         if not customer:
-            moltin_shop.save_customer(user_email, user_email)
+            shop.save_customer(user_email, user_email)
         context.bot.send_message(
             chat_id=chat_id,
             text=f'Ваш email {user_email} сохранён. Наши менеджеры свяжутся с вами в ближайшее время.',
@@ -244,13 +246,13 @@ def waiting_email(update, context):
         )
         db_identifier = f'{chat_id}_cart_id'
         cart_id = _database.get(db_identifier).decode('utf-8')
-        moltin_shop.delete_cart(cart_id)
+        shop.delete_cart(cart_id)
         _database.delete(db_identifier)
 
     return START
 
 
-def handle_users_reply(update, context):
+def handle_users_reply(update, context, shop=None):
     """
     Функция, которая запускается при любом сообщении от пользователя и решает как его обработать.
 
@@ -264,7 +266,7 @@ def handle_users_reply(update, context):
     поэтому по этой фразе выставляется стартовое состояние.
     Если пользователь захочет начать общение с ботом заново, он также может воспользоваться этой командой.
     """
-
+    global _database
     _database = get_database_connection()
 
     if update.message:
@@ -291,7 +293,7 @@ def handle_users_reply(update, context):
     state_handler = states_functions[user_state]
 
     try:
-        next_state = state_handler(update, context)
+        next_state = state_handler(update, context, shop)
         _database.set(chat_id, next_state)
     except Exception as err:
         logger.error(err)
@@ -299,7 +301,7 @@ def handle_users_reply(update, context):
             chat_id=chat_id,
             text=f'Произошла ошибка при выполнении действия. Действие не выполнено. Обратитесь к разработчику.'
         )
-        start(update, context)
+        start(update, context, shop)
         _database.set(chat_id, HANDLE_MENU)
 
 
@@ -316,6 +318,19 @@ def get_database_connection():
     return _database
 
 
+def main():
+    moltin_shop = MoltinShop(shop_client_id, shop_secret_key)
+
+    main_handler = partial(handle_users_reply, shop=moltin_shop)
+
+    updater = Updater(tg_token)
+    dispatcher = updater.dispatcher
+    dispatcher.add_handler(CallbackQueryHandler(main_handler))
+    dispatcher.add_handler(MessageHandler(Filters.text, main_handler))
+    dispatcher.add_handler(CommandHandler('start', main_handler))
+    updater.start_polling()
+
+
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s %(name)s:%(levelname)s:%(message)s',
@@ -328,11 +343,4 @@ if __name__ == '__main__':
     shop_client_id = env('SHOP_CLIENT_ID')
     shop_secret_key = env('SHOP_SECRET_KEY')
 
-    moltin_shop = MoltinShop(shop_client_id, shop_secret_key)
-
-    updater = Updater(tg_token)
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
-    dispatcher.add_handler(CommandHandler('start', handle_users_reply))
-    updater.start_polling()
+    main()
