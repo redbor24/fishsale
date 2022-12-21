@@ -265,13 +265,6 @@ def handle_users_reply(update, context, shop=None):
     поэтому по этой фразе выставляется стартовое состояние.
     Если пользователь захочет начать общение с ботом заново, он также может воспользоваться этой командой.
     """
-    global _database
-    if _database is None:
-        redis_host = env('REDIS_HOST')
-        redis_port = env('REDIS_PORT')
-        redis_password = env('REDIS_PASSWORD')
-        _database = Redis(host=redis_host, port=redis_port, password=redis_password)
-
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -309,6 +302,8 @@ def handle_users_reply(update, context, shop=None):
 
 
 def main():
+    global _database
+    
     logging.basicConfig(
         format='%(asctime)s %(name)s:%(levelname)s:%(message)s',
         level=logging.INFO
@@ -319,6 +314,10 @@ def main():
     tg_token = env('TG_TOKEN')
     shop_client_id = env('SHOP_CLIENT_ID')
     shop_secret_key = env('SHOP_SECRET_KEY')
+    redis_host = env('REDIS_HOST')
+    redis_port = env('REDIS_PORT')
+    redis_password = env('REDIS_PASSWORD')
+    _database = Redis(host=redis_host, port=redis_port, password=redis_password)
 
     moltin_shop = MoltinShop(shop_client_id, shop_secret_key)
 
