@@ -303,7 +303,7 @@ def handle_users_reply(update, context, shop=None):
 
 def main():
     global _database
-    
+
     logging.basicConfig(
         format='%(asctime)s %(name)s:%(levelname)s:%(message)s',
         level=logging.INFO
